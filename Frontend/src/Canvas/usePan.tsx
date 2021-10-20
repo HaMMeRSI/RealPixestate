@@ -1,15 +1,15 @@
-import { MouseEvent as SyntheticMouseEvent, useCallback, useState } from "react";
+import { MouseEvent as SyntheticMouseEvent, RefObject, useState } from "react";
 
 type Point = { x: number; y: number };
 const ORIGIN = Object.freeze({ x: 0, y: 0 });
-const lastPointRef = { current: { x: 0, y: 0 } };
+const lastPointRef: { current: Point } = { current: { x: 0, y: 0 } };
 
-export default function usePan(): [Point, (e: SyntheticMouseEvent) => void] {
+export default function usePan(ref: RefObject<HTMLElement | null>): [Point, { current: Point }, (e: SyntheticMouseEvent) => void] {
 	const [panState, setPanState] = useState<Point>(ORIGIN);
 
 	const pan = (e: MouseEvent) => {
 		const lastPoint = lastPointRef.current;
-		const point = { x: e.pageX, y: e.pageY };
+		const point: Point = { x: e.pageX, y: e.pageY };
 		lastPointRef.current = point;
 
 		setPanState((panState) => {
@@ -21,17 +21,17 @@ export default function usePan(): [Point, (e: SyntheticMouseEvent) => void] {
 	};
 
 	// Tear down listeners.
-	const endPan = () => {
-		document.removeEventListener("mousemove", pan);
-		document.removeEventListener("mouseup", endPan);
+	const endPan = (e: MouseEvent) => {
+		ref.current?.removeEventListener("mousemove", pan);
+		ref.current?.removeEventListener("mouseup", endPan);
 	};
 
 	// Set up listeners.
-	const startPan = useCallback((e: SyntheticMouseEvent) => {
-		document.addEventListener("mousemove", pan);
-		document.addEventListener("mouseup", endPan);
+	const startPan = (e: SyntheticMouseEvent) => {
+		ref.current?.addEventListener("mousemove", pan);
+		ref.current?.addEventListener("mouseup", endPan);
 		lastPointRef.current = { x: e.pageX, y: e.pageY };
-	}, []);
+	};
 
-	return [panState, startPan];
+	return [panState, lastPointRef, startPan];
 }

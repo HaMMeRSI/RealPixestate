@@ -20,7 +20,7 @@ export default function useScale(ref: RefObject<HTMLElement | null>) {
 	useEventListener(ref, "wheel", (e: { preventDefault: () => void; deltaY: number }) => {
 		e.preventDefault();
 		const direction = e.deltaY > 0 ? -1 : 1;
-		setScale((currentScale) => clamp(MIN_SCALE, MAX_SCALE, currentScale + 0.1 * direction));
+		setScale((currentScale) => clamp(MIN_SCALE, MAX_SCALE, currentScale + 0.2 * direction));
 	});
 
 	return scale;

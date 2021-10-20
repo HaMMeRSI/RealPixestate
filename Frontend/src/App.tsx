@@ -4,13 +4,11 @@ import usePan from "./Canvas/usePan";
 import useScale from "./Canvas/useScale";
 import usePrevious from "./Canvas/usePrevious";
 import MaskedArea from "./Canvas/MaskedArea";
-
-const canvasStyle: any = {
-	outline: "1px solid green",
-	position: "absolute",
-};
+import DescriptionBox from "./Canvas/DescriptionBox/DescriptionBox";
+import DndComp from "./Canvas/DndComp";
 
 type Point = { x: number; y: number };
+type ImageT = [string, number, number, number, number];
 
 const pointUtils = {
 	sum: (p1: Point, p2: Point) => ({ x: p1.x + p2.x, y: p1.y + p2.y }),
@@ -20,82 +18,151 @@ const pointUtils = {
 	eq: (p1: Point, p2: Point) => p1.x === p2.x && p1.y === p2.y,
 };
 
-const gridStyle: CSSProperties = {
-	pointerEvents: "none",
-	position: "absolute",
-	width: "1000px",
-	height: "1000px",
-	backgroundSize: "5px 5px",
-	backgroundImage: `
-		linear-gradient(to right, grey .25px, transparent .25px),
-		linear-gradient(to bottom, grey .25px, transparent .25px)`,
+const styles: { [key: string]: CSSProperties } = {
+	canvasStyle: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+	},
+	gridStyle: {
+		pointerEvents: "none",
+		position: "relative",
+		width: "1000px",
+		height: "1000px",
+		backgroundSize: "5px 5px",
+		backgroundImage: `
+			linear-gradient(to right, grey .25px, transparent .25px),
+			linear-gradient(to bottom, grey .25px, transparent .25px)`,
+	},
+	maskStyle: {
+		position: "absolute",
+		width: "1000px",
+		height: "1000px",
+		pointerEvents: "none",
+		top: 0,
+		left: 0,
+	},
+	blurStyle: { width: "100%", height: "100%", backgroundColor: "rgba(179, 179, 179, 0.23)", position: "absolute", top: 0, left: 0, filter: "blur(4px)", pointerEvents: "none" },
 };
 
-const maskStyle: CSSProperties = {
-	position: "absolute",
-	width: "1000px",
-	height: "1000px",
-	pointerEvents: "none",
-};
-
-const imageSrcs: Array<[string, number, number]> = [
-	// ["http://localhost:3000/testImages/1000x1000.png", 10, 10],
-	["http://localhost:3000/testImages/50x50_1.png", 10, 10],
-	["http://localhost:3000/testImages/50x50_2.png", 200, 200],
-	["http://localhost:3000/testImages/50x50_3.png", 145, 50],
-	["http://localhost:3000/testImages/50x50_4.png", 700, 825],
-	["http://localhost:3000/testImages/50x100_1.png", 250, 50],
-	["http://localhost:3000/testImages/100x50.png", 400, 50],
-	["http://localhost:3000/testImages/200x200.png", 790, 790],
-];
-
-const getTransform = (offset: Point, scale: number): CSSProperties => ({
+const realPixestateStyle = (offset: Point, scale: number): CSSProperties => ({
 	position: "relative",
 	transform: `translate(${-offset.x}px, ${-offset.y}px) scale(${scale}`,
 	transformOrigin: `0 0`,
+	display: "inline-block",
+	width: "fit-content",
+	boxShadow: "black 5px 5px 50px -20px",
 });
 
+const imageSrcs: Array<ImageT> = [
+	// ["http://localhost:3000/testImages/1000x1000.png", 10, 10],
+	["http://localhost:3000/testImages/50x50_1.png", 300, 300, 10, 10],
+	["http://localhost:3000/testImages/50x50_1.png", 10, 10, 50, 50],
+	["http://localhost:3000/testImages/50x50_2.png", 200, 200, 50, 50],
+	["http://localhost:3000/testImages/50x50_3.png", 145, 50, 50, 50],
+	["http://localhost:3000/testImages/50x50_4.png", 700, 825, 50, 50],
+	["http://localhost:3000/testImages/50x100_1.png", 250, 50, 100, 50],
+	["http://localhost:3000/testImages/100x50.png", 400, 50, 50, 100],
+	["http://localhost:3000/testImages/200x200.png", 790, 790, 200, 200],
+];
+
+function setMousePos(pos: Point) {
+	return (e: MouseEvent) => {
+		pos.x = e.pageX;
+		pos.y = e.pageY;
+	};
+}
+
+function getTokenId([aleft, atop]: [number, number], [bright, bbottom]: [number, number], size = 1000) {
+	return (atop * size + aleft) * size * size + bbottom * size + bright;
+}
+
+const parse5 = (n: number) => parseInt(`${n / 5}`) * 5;
+
 let mousePosOnDown: Point = { x: 0, y: 0 };
-let mousePos: Point = { x: 0, y: 0 };
+let relativeMousePos: Point = { x: 0, y: 0 };
 let adjustedOffset: Point = { x: 0, y: 0 };
+
+const isDnd = { current: false };
+const isScale = { current: false };
 
 function App() {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const realPixestateRef = useRef<HTMLDivElement>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
-	const [offset, startPan] = usePan();
-	const scale = useScale(containerRef);
+	const [offset, mousePos, startPan] = usePan(realPixestateRef);
+	const scale = useScale(realPixestateRef);
 	const [showMask, setShowMask] = useState(false);
-	const [maskPos, setMaskPos] = useState({ x: 0, y: 0 });
+	const [showOwner, setShowOwner] = useState(false);
+	const [mask, setMaskPos] = useState({ x: 0, y: 0, w: 0, h: 0 });
 
-	function setMousePos(pos: Point) {
-		return (e: MouseEvent) => {
-			pos.x = (e.pageX + adjustedOffset.x) / scale;
-			pos.y = (e.pageY + adjustedOffset.y) / scale;
-		};
-	}
+	const realPixestateMouseMove = (e: MouseEvent) => {
+		if (isDnd.current) {
+			dnd_drag_move(e);
+		}
+		if (isScale.current) {
+			dnd_scale_move(e);
+		}
 
-	const lastOffset = usePrevious(offset) ?? offset;
-	const lastScale = usePrevious(scale) ?? scale;
+		relativeMousePos.x = (e.pageX + adjustedOffset.x) / scale;
+		relativeMousePos.y = (e.pageY + adjustedOffset.y) / scale;
+	};
 
-	function openMask(_e: MouseEvent) {
-		if (pointUtils.eq(mousePos, mousePosOnDown)) {
+	function onAreaClick(_e: MouseEvent): any {
+		if (pointUtils.eq(mousePos.current, mousePosOnDown)) {
+			const { x: mx, y: my } = relativeMousePos;
+			const imgs = imageSrcs.filter(([_src, x, y, w, h]) => mx >= x && mx <= x + w && my > y && my < y + h);
+			const isDndCopy = isDnd.current;
+			const isScaleCopy = isScale.current;
+
+			setShowOwner(imgs.length > 0 && !showMask);
 			setShowMask((mask) => {
 				if (!mask) {
-					setMaskPos(pointUtils.map(mousePos, (x, y) => ({ x: parseInt(`${x / 5}`) * 5, y: parseInt(`${y / 5}`) * 5 })));
+					if (imgs.length > 0) {
+						setMaskPos({ x: imgs[0][1], y: imgs[0][2], w: imgs[0][3], h: imgs[0][4] });
+					} else {
+						setMaskPos({ ...pointUtils.map(relativeMousePos, (x, y) => ({ x: parseInt(`${x / 5}`) * 5, y: parseInt(`${y / 5}`) * 5 })), w: 5, h: 5 });
+					}
 				}
 
-				return !mask;
+				return !mask || isDndCopy || isScaleCopy;
 			});
 		}
 	}
 
+	function dnd_drag_move(e: MouseEvent) {
+		e.stopPropagation();
+		setMaskPos((mask) => ({ x: Math.min(995 - mask.w, parse5(relativeMousePos.x)), y: Math.min(995 - mask.h, parse5(relativeMousePos.y)), w: mask.w, h: mask.h }));
+	}
+
+	function dnd_scale_move(e: MouseEvent) {
+		e.stopPropagation();
+		const w = Math.min(1000 - mask.x, Math.max(5, parse5(relativeMousePos.x) - mask.x));
+		const h = Math.min(1000 - mask.y, Math.max(5, parse5(relativeMousePos.y) - mask.y));
+		setMaskPos((mask) => ({ x: mask.x, y: mask.y, w, h }));
+	}
+
+	function containerMouseUp(_e: MouseEvent) {
+		setShowMask(false);
+		setShowOwner(false);
+		isDnd.current = false;
+		isScale.current = false;
+	}
+
+	function realPixestateMouseUp(e: MouseEvent) {
+		e.stopPropagation();
+		onAreaClick(e);
+		isDnd.current = false;
+		isScale.current = false;
+	}
+
+	const lastOffset = usePrevious(offset) ?? offset;
+	const lastScale = usePrevious(scale) ?? scale;
 	if (lastScale === scale) {
 		const delta = pointUtils.diff(offset, lastOffset);
 		adjustedOffset = pointUtils.sum(adjustedOffset, delta);
 	} else {
-		const lastMouse = pointUtils.scale(mousePos, lastScale);
-		const newMouse = pointUtils.scale(mousePos, scale);
+		const lastMouse = pointUtils.scale(relativeMousePos, lastScale);
+		const newMouse = pointUtils.scale(relativeMousePos, scale);
 		const mouseOffset = pointUtils.diff(lastMouse, newMouse);
 		adjustedOffset = pointUtils.diff(adjustedOffset, mouseOffset);
 	}
@@ -104,12 +171,12 @@ function App() {
 		const context = canvasRef.current?.getContext("2d");
 		context?.fillRect(495, 495, 10, 10);
 		// realPixestateRef?.current?.prepend(grid(200, 1000, { gridStyle, lineStyle }));
-		imageSrcs.map(([src, x, y]) => {
+		imageSrcs.map(([src, x, y, w, h]) => {
 			const image = new Image();
 			image.src = src;
 
 			image.onload = () => {
-				context?.drawImage(image, x, y);
+				context?.drawImage(image, x, y, w, h);
 			};
 
 			return image;
@@ -117,11 +184,21 @@ function App() {
 	}, []);
 
 	return (
-		<div id="container" ref={containerRef} onMouseDown={startPan}>
-			<div id="realPixestate" ref={realPixestateRef} onMouseMove={setMousePos(mousePos)} style={getTransform(adjustedOffset, scale)}>
-				<div style={gridStyle}></div>
-				<canvas onMouseDown={setMousePos(mousePosOnDown)} onMouseUp={openMask} ref={canvasRef} width="1000" height="1000" style={canvasStyle}></canvas>
-				{showMask ? <MaskedArea startPos={maskPos} size={50} style={maskStyle}></MaskedArea> : <></>}
+		<div id="container" onMouseUp={containerMouseUp}>
+			<div
+				id="realPixestate"
+				ref={realPixestateRef}
+				onMouseMove={realPixestateMouseMove}
+				onMouseDown={startPan}
+				onMouseUp={realPixestateMouseUp}
+				style={realPixestateStyle(adjustedOffset, scale)}
+			>
+				<div style={styles.gridStyle}></div>
+				<canvas onMouseDown={setMousePos(mousePosOnDown)} ref={canvasRef} width="1000" height="1000" style={styles.canvasStyle}></canvas>
+				{!showOwner && showMask ? <DndComp parent={realPixestateRef} isDnd={isDnd} isScale={isScale} mask={mask} scale={scale}></DndComp> : <></>}
+				{showMask ? <MaskedArea mask={mask} style={styles.maskStyle}></MaskedArea> : <></>}
+				<div style={styles.blurStyle}></div>
+				{showOwner ? <DescriptionBox scale={scale} tokenId={getTokenId([mask.x, mask.y], [mask.x + mask.w, mask.y + mask.h])}></DescriptionBox> : <></>}
 			</div>
 		</div>
 	);
