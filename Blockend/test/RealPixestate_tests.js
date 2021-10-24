@@ -43,7 +43,6 @@ contract('RealPixestate', (accounts) => {
 
 		await realPixestate.safeMint(accounts[1], getTokenId([0, 0], [9, 9]), myToken.address, { from: accounts[1] });
 		assert.equal((await myToken.balanceOf(accounts[0])).toNumber(), 100);
-		// await realPixestate.safeMint(accounts[0], getTokenId([45, 45], [500, 46]));
 	});
 
 	it('should mint with discount', async () => {
@@ -56,7 +55,7 @@ contract('RealPixestate', (accounts) => {
 		assert.equal((await myToken.balanceOf(accounts[0])).toNumber(), 150);
 		// await realPixestate.safeMint(accounts[0], getTokenId([45, 45], [500, 46]));
 	});
-	
+
 	it('should mint with discount2', async () => {
 		const realPixestate = await helloWorld.deployed();
 		const myToken = await MyToken.deployed();
@@ -71,6 +70,12 @@ contract('RealPixestate', (accounts) => {
 		const realPixestate = await helloWorld.deployed();
 		const myToken = await MyToken.deployed();
 		await truffleAssert.reverts(realPixestate.safeMint(accounts[0], getTokenId([45, 45], [500, 10]), myToken.address));
+	});
+
+	it('Is invalid token2', async () => {
+		const realPixestate = await helloWorld.deployed();
+		const myToken = await MyToken.deployed();
+		await truffleAssert.reverts(realPixestate.safeMint(accounts[0], 9491229, myToken.address));
 	});
 
 	it('Out side of bounds', async () => {

@@ -246,35 +246,14 @@ module.exports = async function main(callback) {
 	try {
 		const accounts = await web3.eth.getAccounts();
 
-		// const RealPixestateNoSpatial = artifacts.require('RealPixestateNoSpatial');
-		// const realPixestate = await RealPixestateNoSpatial.deployed();
-
 		const RealPixestate = artifacts.require('RealPixestate');
+		const MyToken = artifacts.require('MyToken');
+		
 		const realPixestate = await RealPixestate.deployed();
-		console.log(await realPixestate.testMintGas());
-		// await realPixestate.testMint(50);
-		// console.log(([await realPixestate.spatialMap(0, 0)]).map((x) => breakTokenId(x.toNumber())));
-		// console.log(([await realPixestate.spatialMap(1, 0)]).map((x) => breakTokenId(x.toNumber())));
-		// const js = 50;
-		// for (let row = 0; row < 1000; row += js) {
-		// 	for (let col = 0; col < 1000; col += js) {
-		// 		const tokenId = getTokenId([row, col], [row + js - 1, col + js - 1]);
-		// 		// const tokenId = (row * dimensions + col) * dimensions * dimensions + ((row + js - 1) * dimensions + (col + js - 1));
-		// 		try {
-		// 			await realPixestate.safeMint(accounts[0], tokenId);
-		// 		} catch (e) {}
-		// 	}
-		// }
-		// const areas = (1000 * 1000) / (100 * 100);
-		// const arr = [];
-		// for (let i = 0; i < areas; i++) {
-		// 	const res = await realPixestate.getMap(i);
-		// 	arr.push(res.map((x) => breakTokenId(x.toNumber())));
-		// }
-		// console.log(arr.flat());
-		// console.log(await realPixestate.getSpatialHashes(getTokenId([0, 100], [0, 199])));
-		// arr.push((await realPixestate.getMap(0)).map((x) => breakTokenId(x.toNumber())));
-		// arr.push((await realPixestate.getMap(1)).map((x) => breakTokenId(x.toNumber())));
+		const myToken = await MyToken.deployed();
+
+		await myToken.approve(realPixestate.address, 10000000, { from: accounts[1] });
+		await realPixestate.safeMint(accounts[1], getTokenId([10, 10], [15, 15]), myToken.address, { from: accounts[1] });
 
 		callback(0);
 	} catch (error) {

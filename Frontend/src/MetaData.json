@@ -1,0 +1,10 @@
+{
+	"tokenId": "int",
+	"description": "string",
+	"external_url": "string",
+	"external_url_text": "string Max Length 40 characters",
+	"image": "string",
+	"name": "string",
+	"name_bio": "string",
+	"attributes": []
+}

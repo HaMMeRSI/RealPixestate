@@ -1,7 +1,7 @@
+import "./DndComponent.css";
 import { CSSProperties, MouseEvent as SyntheticMouseEvent, RefObject, useEffect } from "react";
-import SvgImage from "../Images/MoveSvg";
-import ScaleSvg from "../Images/ScaleSvg";
-import useEventListener from "../useEventListener";
+import SvgImage from "../../Images/MoveSvg";
+import ScaleSvg from "../../Images/ScaleSvg";
 
 type Mask = { x: number; y: number; w: number; h: number };
 type cRefObject<T> = { current: T };

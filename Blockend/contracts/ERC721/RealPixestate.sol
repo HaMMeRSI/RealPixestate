@@ -17,21 +17,22 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 	}
 
 	uint256 private constant dimensions = 1000;
-	uint256 private constant spatialDimensions = 10;
-	uint256 private constant spatialDimensionsSqr = spatialDimensions * spatialDimensions;
 
 	uint256 private royaltiesPercentage;
 	address private royaltiesReceiver;
 	IOracle private oracle;
 
+	// discount to: [Area, amount]
 	mapping(address => uint256[2]) private mintDiscounts;
 	mapping(uint256 => uint256[]) private spatialMap;
 	mapping(uint256 => string) public uris;
 
+	error notOwner();
+
 	constructor(address _oracle) ERC721("Real Pixestate", "RPX") {
 		oracle = IOracle(_oracle);
 		royaltiesReceiver = _msgSender();
-		royaltiesPercentage = 10;
+		royaltiesPercentage = 0;
 	}
 
 	function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, IERC165) returns (bool) {
@@ -39,12 +40,12 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 	}
 
 	function tokenURI(uint256 tokenId) public view override returns (string memory) {
-		require(_exists(tokenId), "URI query for nonexistent token");
+		require(_exists(tokenId), "nonexistent token");
 		return uris[tokenId];
 	}
 
 	function setUri(uint256 tokenId, string memory uri) public {
-		require(ownerOf(tokenId) == _msgSender(), "Not your newArea");
+		require(ownerOf(tokenId) == _msgSender(), "Not your area");
 		uris[tokenId] = uri;
 	}
 
@@ -53,6 +54,9 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 	}
 
 	function getSpatialHashes(uint256 tokenId) internal pure returns (uint256[] memory) {
+		uint256 spatialDimensions = 10;
+		uint256 spatialDimensionsSqr = spatialDimensions * spatialDimensions;
+
 		Section memory section = breakTokenId(tokenId);
 		Section memory spatialSection = Section(section.top / spatialDimensionsSqr, section.left / spatialDimensionsSqr, section.bottom / spatialDimensionsSqr, section.right / spatialDimensionsSqr);
 
@@ -89,6 +93,24 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 		Section memory Section1 = breakTokenId(tokenId1);
 		Section memory Section2 = breakTokenId(tokenId2);
 		return !(Section2.left > Section1.right || Section2.right < Section1.left || Section2.top > Section1.bottom || Section2.bottom < Section1.top);
+	}
+
+	function areaIsOccupied(uint256 tokenId) public view returns (bool) {
+		uint256[] memory spatialHashes = getSpatialHashes(tokenId);
+
+		uint256 sLength = spatialHashes.length;
+		for (uint256 i = 0; i < sLength; i++) {
+			uint256[] memory hashesInArea = spatialMap[spatialHashes[i]];
+			uint256 hLength = hashesInArea.length;
+
+			for (uint256 j = 0; j < hLength; j++) {
+				if (isIntersecting(tokenId, hashesInArea[j])) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	function isSubTokenOf(uint256 tokenId, uint256[] memory subTokens) internal pure returns (bool) {
@@ -146,21 +168,8 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 		uint256 tokenId,
 		address token
 	) external {
-		uint256[] memory spatialHashes = getSpatialHashes(tokenId);
-
-		uint256 sLength = spatialHashes.length;
-		for (uint256 i = 0; i < sLength; i++) {
-			uint256[] memory hashesInArea = spatialMap[spatialHashes[i]];
-			uint256 hLength = hashesInArea.length;
-
-			for (uint256 j = 0; j < hLength; j++) {
-				if (isIntersecting(tokenId, hashesInArea[j])) {
-					revert("Area is occupied");
-				}
-			}
-
-			spatialMap[spatialHashes[i]].push(tokenId);
-		}
+		require(!areaIsOccupied(tokenId), "Area is occupied");
+		populateSpatialMap(tokenId);
 
 		handleMintTransfer(_msgSender(), tokenId, token);
 		_safeMint(to, tokenId);
@@ -225,33 +234,11 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 	}
 
 	function setRoyalties(uint256 _royaltiesPercentage) external {
-		require(_msgSender() == royaltiesReceiver, "Only royalties receiver can set royalties");
+		require(_msgSender() == royaltiesReceiver, "Only royalties receiver");
 		royaltiesPercentage = _royaltiesPercentage;
 	}
 
 	function royaltyInfo(uint256, uint256 _salePrice) external view returns (address receiver, uint256 royaltyAmount) {
 		return (royaltiesReceiver, (_salePrice * royaltiesPercentage) / 100);
-	}
-
-	function uint2str(uint256 _i) internal pure returns (string memory _uintAsString) {
-		if (_i == 0) {
-			return "0";
-		}
-		uint256 j = _i;
-		uint256 len;
-		while (j != 0) {
-			len++;
-			j /= 10;
-		}
-		bytes memory bstr = new bytes(len);
-		uint256 k = len;
-		while (_i != 0) {
-			k = k - 1;
-			uint8 temp = (48 + uint8(_i - (_i / 10) * 10));
-			bytes1 b1 = bytes1(temp);
-			bstr[k] = b1;
-			_i /= 10;
-		}
-		return string(bstr);
 	}
 }

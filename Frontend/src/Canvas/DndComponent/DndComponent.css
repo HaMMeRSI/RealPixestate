@@ -1,0 +1,22 @@
+.dnd {
+	user-select: none;
+	position: absolute;
+}
+.dnd_move {
+	position: absolute;
+	font-size: 4px;
+	top: -5px;
+	left: -5px;
+	width: 5px;
+	height: 5px;
+	transform-origin: 80% 80%;
+}
+.dnd_scale {
+	position: absolute;
+	font-size: 4px;
+	bottom: -5px;
+	right: -5px;
+	width: 4px;
+	height: 4px;
+	transform-origin: 0 0;
+}

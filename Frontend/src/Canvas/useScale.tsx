@@ -1,5 +1,5 @@
 import { RefObject, useState } from "react";
-import useEventListener from "../useEventListener";
+import useEventListener from "../Hooks/useEventListener";
 
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 10;

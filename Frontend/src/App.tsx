@@ -2,10 +2,11 @@ import { CSSProperties, useEffect, useRef, useState, MouseEvent } from "react";
 import "./App.css";
 import usePan from "./Canvas/usePan";
 import useScale from "./Canvas/useScale";
-import usePrevious from "./Canvas/usePrevious";
+import usePrevious from "./Hooks/usePrevious";
 import MaskedArea from "./Canvas/MaskedArea";
 import DescriptionBox from "./Canvas/DescriptionBox/DescriptionBox";
-import DndComp from "./Canvas/DndComp";
+import DndComp from "./Canvas/DndComponent/DndComp";
+import axios from "axios";
 
 type Point = { x: number; y: number };
 type ImageT = [string, number, number, number, number];
@@ -51,7 +52,7 @@ const realPixestateStyle = (offset: Point, scale: number): CSSProperties => ({
 	transformOrigin: `0 0`,
 	display: "inline-block",
 	width: "fit-content",
-	boxShadow: "black 5px 5px 50px -20px",
+	boxShadow: "black 0 0 50px -20px",
 });
 
 const imageSrcs: Array<ImageT> = [
@@ -166,6 +167,24 @@ function App() {
 		const mouseOffset = pointUtils.diff(lastMouse, newMouse);
 		adjustedOffset = pointUtils.diff(adjustedOffset, mouseOffset);
 	}
+
+	useEffect(() => {
+		function getTokenId([arow, acol]: any, [brow, bcol]: any, size = 1000) {
+			return (arow * size + acol) * size * size + brow * size + bcol;
+		}
+		axios
+			.post("https://us-central1-realpixestate-18a0e.cloudfunctions.net/helloWorld", {
+				tokenId: getTokenId([0, 0], [9, 9]),
+				description: "wefwef",
+				external_url: "ewfwefwef",
+				external_url_text: "wefwfewef",
+				image: "https://images.ctfassets.net/hrltx12pl8hq/7yQR5uJhwEkRfjwMFJ7bUK/dc52a0913e8ff8b5c276177890eb0129/offset_comp_772626-opt.jpg?fit=fill&w=800&h=300",
+				name: "wefwefwefwef",
+				name_bio: "wefwefwef",
+			})
+			.then((res) => console.log(res.data))
+			.catch((e) => console.log(JSON.stringify(e)));
+	}, []);
 
 	useEffect(() => {
 		const context = canvasRef.current?.getContext("2d");
