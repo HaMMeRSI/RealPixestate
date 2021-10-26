@@ -20,23 +20,26 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 
 	uint256 private royaltiesPercentage;
 	address private royaltiesReceiver;
-	IOracle private oracle;
 
 	// discount to: [Area, amount]
-	mapping(address => uint256[2]) private mintDiscounts;
+	mapping(address => uint256[2]) private discounts;
 	mapping(uint256 => uint256[]) private spatialMap;
 	mapping(uint256 => string) public uris;
+	mapping(address => uint256) public prices;
 
-	error notOwner();
+	uint256[] private usedTokenIds;
 
-	constructor(address _oracle) ERC721("Real Pixestate", "RPX") {
-		oracle = IOracle(_oracle);
+	constructor() ERC721("Real Pixestate", "RPX") {
 		royaltiesReceiver = _msgSender();
 		royaltiesPercentage = 0;
 	}
 
 	function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, IERC165) returns (bool) {
 		return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
+	}
+
+	function getUsedTokenIds() public view returns (uint256[] memory) {
+		return usedTokenIds;
 	}
 
 	function tokenURI(uint256 tokenId) public view override returns (string memory) {
@@ -47,10 +50,6 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 	function setUri(uint256 tokenId, string memory uri) public {
 		require(ownerOf(tokenId) == _msgSender(), "Not your area");
 		uris[tokenId] = uri;
-	}
-
-	function getMap(uint256 spatialHash) external view returns (uint256[] memory) {
-		return spatialMap[spatialHash];
 	}
 
 	function getSpatialHashes(uint256 tokenId) internal pure returns (uint256[] memory) {
@@ -131,13 +130,27 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 		return newArea == area && mSection.top == section.top && mSection.left == section.left && mSection.bottom == section.bottom && mSection.right == section.right;
 	}
 
+	function removeFromArray(uint256[] storage arr, uint256 data) internal returns (bool) {
+		uint256[] memory mArr = arr;
+
+		for (uint256 j = 0; j < mArr.length; j++) {
+			if (data == mArr[j]) {
+				arr[j] = mArr[mArr.length - 1];
+				arr.pop();
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	function grantDiscount(
 		address to,
 		uint256 area,
 		uint256 amount
 	) external onlyOwner {
 		require(area > 0 && amount > 0 && amount <= 100, "Invalid discount params");
-		mintDiscounts[to] = [area, amount];
+		discounts[to] = [area, amount];
 	}
 
 	function handleMintTransfer(
@@ -147,16 +160,16 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 	) internal {
 		Section memory section = breakTokenId(tokenId);
 		uint256 area = (section.bottom - section.top + 1) * (section.right - section.left + 1);
-		uint256 oPrice = oracle.getPrice(token);
-		uint256 areaPrice = area * oracle.getPrice(token);
-		(uint256 discountedArea, uint256 discountAmount) = (mintDiscounts[_address][0], mintDiscounts[_address][1]);
+		uint256 oPrice = prices[token];
+		uint256 areaPrice = area * oPrice;
+		(uint256 discountedArea, uint256 discountAmount) = (discounts[_address][0], discounts[_address][1]);
 
 		if (discountedArea > 0) {
 			areaPrice = areaPrice - ((discountedArea * oPrice * discountAmount) / 100);
 			if (area >= discountedArea) {
-				delete mintDiscounts[_address];
+				delete discounts[_address];
 			} else {
-				mintDiscounts[_address][0] = discountedArea - area;
+				discounts[_address][0] = discountedArea - area;
 			}
 		}
 
@@ -170,6 +183,7 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 	) external {
 		require(!areaIsOccupied(tokenId), "Area is occupied");
 		populateSpatialMap(tokenId);
+		usedTokenIds.push(tokenId);
 
 		handleMintTransfer(_msgSender(), tokenId, token);
 		_safeMint(to, tokenId);
@@ -178,17 +192,10 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 	function burnTokenId(uint256 tokenId) private {
 		uint256[] memory spatialHashes = getSpatialHashes(tokenId);
 
+		removeFromArray(usedTokenIds, tokenId);
 		for (uint256 i = 0; i < spatialHashes.length; i++) {
-			uint256 spatialHash = spatialHashes[i];
-			uint256[] memory spatialMapHashes = spatialMap[spatialHash];
-
-			for (uint256 j = 0; j < spatialMapHashes.length; j++) {
-				if (tokenId == spatialMapHashes[j]) {
-					uint256[] storage mappedHashes = spatialMap[spatialHash];
-					mappedHashes[j] = spatialMapHashes[spatialMapHashes.length - 1];
-					mappedHashes.pop();
-					break;
-				}
+			if (spatialMap[spatialHashes[i]].length > 0) {
+				removeFromArray(spatialMap[spatialHashes[i]], tokenId);
 			}
 		}
 
@@ -219,7 +226,7 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 			require(_isApprovedOrOwner(_msgSender(), oldTokens[i]), "not owner");
 		}
 
-		require(isSubTokenOf(tokenId, oldTokens), "Provided merge is not fitting");
+		require(isSubTokenOf(tokenId, oldTokens), "bad merge");
 
 		for (uint256 i = 0; i < oldTokens.length; i++) {
 			burnTokenId(oldTokens[i]);
@@ -227,6 +234,7 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 
 		_safeMint(_msgSender(), tokenId);
 		populateSpatialMap(tokenId);
+		usedTokenIds.push(tokenId);
 	}
 
 	function revokeToken(uint256 tokenId) public onlyOwner {
@@ -236,6 +244,14 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 	function setRoyalties(uint256 _royaltiesPercentage) external {
 		require(_msgSender() == royaltiesReceiver, "Only royalties receiver");
 		royaltiesPercentage = _royaltiesPercentage;
+	}
+
+	function setPrice(address token, uint256 price) external onlyOwner {
+		if (price == 0) {
+			delete prices[token];
+		}
+
+		prices[token] = price;
 	}
 
 	function royaltyInfo(uint256, uint256 _salePrice) external view returns (address receiver, uint256 royaltyAmount) {

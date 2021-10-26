@@ -7,9 +7,8 @@ import MaskedArea from "./Canvas/MaskedArea";
 import DescriptionBox from "./Canvas/DescriptionBox/DescriptionBox";
 import DndComp from "./Canvas/DndComponent/DndComp";
 import axios from "axios";
-
-type Point = { x: number; y: number };
-type ImageT = [string, number, number, number, number];
+import { ImageT, Point } from "./typs";
+import useBlcokchainData from "./Blockchain/useBlockchainData";
 
 const pointUtils = {
 	sum: (p1: Point, p2: Point) => ({ x: p1.x + p2.x, y: p1.y + p2.y }),
@@ -88,6 +87,7 @@ const isDnd = { current: false };
 const isScale = { current: false };
 
 function App() {
+	const containerRef = useRef<HTMLDivElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const realPixestateRef = useRef<HTMLDivElement>(null);
 	const [offset, mousePos, startPan] = usePan(realPixestateRef);
@@ -95,8 +95,24 @@ function App() {
 	const [showMask, setShowMask] = useState(false);
 	const [showOwner, setShowOwner] = useState(false);
 	const [mask, setMaskPos] = useState({ x: 0, y: 0, w: 0, h: 0 });
+	const [tokensData, setTokensData] = useState<[number, string][]>([[-1, ""]]);
+	const [cursor, setCursor] = useState("default");
+
+	useBlcokchainData((tokenId, uri) => {
+		setTokensData((tokens) => {
+			return [...tokens, [tokenId, uri]];
+		});
+	});
 
 	const realPixestateMouseMove = (e: MouseEvent) => {
+		if (isDnd.current) {
+			setCursor("grabbing");
+		} else if (isScale.current) {
+			setCursor("nw-resize");
+		} else {
+			setCursor("default");
+		}
+
 		if (isDnd.current) {
 			dnd_drag_move(e);
 		}
@@ -121,7 +137,7 @@ function App() {
 					if (imgs.length > 0) {
 						setMaskPos({ x: imgs[0][1], y: imgs[0][2], w: imgs[0][3], h: imgs[0][4] });
 					} else {
-						setMaskPos({ ...pointUtils.map(relativeMousePos, (x, y) => ({ x: parseInt(`${x / 5}`) * 5, y: parseInt(`${y / 5}`) * 5 })), w: 5, h: 5 });
+						setMaskPos({ ...pointUtils.map(relativeMousePos, (x, y) => ({ x: parseInt(`${x / 5}`) * 5, y: parseInt(`${y / 5}`) * 5 })), w: 4, h: 4 });
 					}
 				}
 
@@ -132,18 +148,20 @@ function App() {
 
 	function dnd_drag_move(e: MouseEvent) {
 		e.stopPropagation();
-		setMaskPos((mask) => ({ x: Math.min(995 - mask.w, parse5(relativeMousePos.x)), y: Math.min(995 - mask.h, parse5(relativeMousePos.y)), w: mask.w, h: mask.h }));
+		const x = Math.max(0, Math.min(1000 - mask.w, parse5(relativeMousePos.x)));
+		const y = Math.max(0, Math.min(1000 - mask.h, parse5(relativeMousePos.y)));
+		setMaskPos((mask) => ({ x, y, w: mask.w, h: mask.h }));
 	}
 
 	function dnd_scale_move(e: MouseEvent) {
 		e.stopPropagation();
-		const w = Math.min(1000 - mask.x, Math.max(5, parse5(relativeMousePos.x) - mask.x));
-		const h = Math.min(1000 - mask.y, Math.max(5, parse5(relativeMousePos.y) - mask.y));
-		setMaskPos((mask) => ({ x: mask.x, y: mask.y, w, h }));
+		const w = Math.min(1000 - mask.x, Math.max(4, parse5(relativeMousePos.x) - mask.x + 4));
+		const h = Math.min(1000 - mask.y, Math.max(4, parse5(relativeMousePos.y) - mask.y + 4));
+		setMaskPos((mask) => ({ x: mask.x, y: mask.y, w: w >= 1000 ? 999 : w, h: h >= 1000 ? 999 : h }));
 	}
 
 	function containerMouseUp(_e: MouseEvent) {
-		setShowMask(false);
+		// setShowMask(false);
 		setShowOwner(false);
 		isDnd.current = false;
 		isScale.current = false;
@@ -203,7 +221,7 @@ function App() {
 	}, []);
 
 	return (
-		<div id="container" onMouseUp={containerMouseUp}>
+		<div id="container" onMouseUp={containerMouseUp} style={{ cursor }} ref={containerRef}>
 			<div
 				id="realPixestate"
 				ref={realPixestateRef}
@@ -214,7 +232,7 @@ function App() {
 			>
 				<div style={styles.gridStyle}></div>
 				<canvas onMouseDown={setMousePos(mousePosOnDown)} ref={canvasRef} width="1000" height="1000" style={styles.canvasStyle}></canvas>
-				{!showOwner && showMask ? <DndComp parent={realPixestateRef} isDnd={isDnd} isScale={isScale} mask={mask} scale={scale}></DndComp> : <></>}
+				{!showOwner && showMask ? <DndComp parent={realPixestateRef} parentForPotal={containerRef} isDnd={isDnd} isScale={isScale} mask={mask} scale={scale}></DndComp> : <></>}
 				{showMask ? <MaskedArea mask={mask} style={styles.maskStyle}></MaskedArea> : <></>}
 				<div style={styles.blurStyle}></div>
 				{showOwner ? <DescriptionBox scale={scale} tokenId={getTokenId([mask.x, mask.y], [mask.x + mask.w, mask.y + mask.h])}></DescriptionBox> : <></>}

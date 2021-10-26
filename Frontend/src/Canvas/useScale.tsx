@@ -1,7 +1,7 @@
 import { RefObject, useState } from "react";
 import useEventListener from "../Hooks/useEventListener";
 
-const MIN_SCALE = 0.5;
+const MIN_SCALE = 0.4;
 const MAX_SCALE = 10;
 
 function clamp(min: number, max: number, val: number) {

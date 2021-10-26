@@ -1,6 +1,6 @@
 import { CSSProperties } from "react";
+import { Mask } from "../typs";
 
-type Mask = { x: number; y: number; w: number; h: number };
 type Props = { mask: Mask; style: CSSProperties };
 
 export default function MaskedArea({ mask, style }: Props) {

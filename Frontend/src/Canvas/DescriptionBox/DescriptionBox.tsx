@@ -1,14 +1,6 @@
 import { CSSProperties } from "react";
+import { Metadata } from "../../typs";
 import "./DescriptionBox.css";
-
-type Metadata = {
-	tokenId: number;
-	description: string;
-	external_url: string;
-	external_url_text: string;
-	name: string;
-	name_bio: string;
-};
 
 type Props = {
 	tokenId: number;
@@ -41,7 +33,7 @@ function breakTokenId(tokenId: number) {
 
 const getBoxStyle = (tokenId: number, scale: number): CSSProperties => {
 	const section = breakTokenId(tokenId);
-	const adjScale = Math.min(3.5, Math.max(0.3, 1 / scale));
+	const adjScale = Math.min(2, Math.max(0.2,  1 / scale));
 
 	return {
 		position: "absolute",
@@ -51,7 +43,7 @@ const getBoxStyle = (tokenId: number, scale: number): CSSProperties => {
 		transformOrigin: "0 0",
 		cursor: "default",
 		maxWidth: "50ch",
-		fontSize: "1.2rem",
+		fontSize: "2rem",
 	};
 };
 
@@ -75,23 +67,23 @@ export default function DescriptionBox({ tokenId, scale }: Props) {
 				<div className="db_header">
 					<div className="db_header_owner">
 						<span>@</span>
-						<a target="_blank" href={metaData.name_bio} className="db_header_owner_name">
+						<a target="_blank" rel="noreferrer" href={metaData.name_bio} className="db_header_owner_name">
 							{metaData.name}
 						</a>
 						<span> owns: #</span>
-						<a target="_blank" href={`https://etherscan.io/token/${contractAddress}?a=${tokenId}`}>
+						<a target="_blank" rel="noreferrer" href={`https://etherscan.io/token/${contractAddress}?a=${tokenId}`}>
 							{tokenId}
 						</a>
 					</div>
 					<div className="db_header_address">
-						<a target="_blank" href={`https://etherscan.io/address/${address}`}>
+						<a target="_blank" rel="noreferrer" href={`https://etherscan.io/address/${address}`}>
 							{address}
 						</a>
 					</div>
 				</div>
 				<div className="db_description">{metaData.description}</div>
 				<div className="db_link">
-					<a target="_blank" href={metaData.external_url}>
+					<a target="_blank" rel="noreferrer" href={metaData.external_url}>
 						{metaData.external_url_text}
 					</a>
 				</div>
