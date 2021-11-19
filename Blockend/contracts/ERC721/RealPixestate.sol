@@ -48,7 +48,7 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 	}
 
 	function setUri(uint256 tokenId, string memory uri) public {
-		require(ownerOf(tokenId) == _msgSender(), "Not your area");
+		require(_isApprovedOrOwner(_msgSender(), tokenId), "Not your area");
 		uris[tokenId] = uri;
 	}
 
@@ -163,7 +163,6 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 		uint256 oPrice = prices[token];
 		uint256 areaPrice = area * oPrice;
 		(uint256 discountedArea, uint256 discountAmount) = (discounts[_address][0], discounts[_address][1]);
-
 		if (discountedArea > 0) {
 			areaPrice = areaPrice - ((discountedArea * oPrice * discountAmount) / 100);
 			if (area >= discountedArea) {
@@ -173,20 +172,49 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 			}
 		}
 
-		IERC20(token).transferFrom(_address, royaltiesReceiver, areaPrice);
+		if (token != address(0)) {
+			IERC20(token).transferFrom(_address, royaltiesReceiver, areaPrice);
+		} else {
+			require(areaPrice <= msg.value, "Insufficient funds");
+		}
+	}
+
+	function uint2str(uint256 _i) internal pure returns (string memory _uintAsString) {
+		if (_i == 0) {
+			return "0";
+		}
+		uint256 j = _i;
+		uint256 len;
+		while (j != 0) {
+			len++;
+			j /= 10;
+		}
+		bytes memory bstr = new bytes(len);
+		uint256 k = len;
+		while (_i != 0) {
+			k = k - 1;
+			uint8 temp = (48 + uint8(_i - (_i / 10) * 10));
+			bytes1 b1 = bytes1(temp);
+			bstr[k] = b1;
+			_i /= 10;
+		}
+		return string(bstr);
 	}
 
 	function safeMint(
 		address to,
 		uint256 tokenId,
-		address token
-	) external {
+		address token,
+		string memory uri
+	) external payable {
 		require(!areaIsOccupied(tokenId), "Area is occupied");
 		populateSpatialMap(tokenId);
 		usedTokenIds.push(tokenId);
 
 		handleMintTransfer(_msgSender(), tokenId, token);
+
 		_safeMint(to, tokenId);
+		setUri(tokenId, uri);
 	}
 
 	function burnTokenId(uint256 tokenId) private {

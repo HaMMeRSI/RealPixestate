@@ -1,17 +1,11 @@
-const Web3 = require("web3");
-const rpeAbi = require("./abi/realPixestateABI.json");
+import Web3 from "web3";
+import { TokenPrices } from "../typs";
+import { breakTokenId } from "../Utils";
+import { acceptedTokenAddresses } from "./TokenContract";
+import { getContract, wei2eth } from "./Web3Helper";
 
-var web3 = new Web3(new Web3.providers.HttpProvider("HTTP://127.0.0.1:9545"));
-const rpeAddr = "0xc68FD93A5904Ed12386862eBe6E4a63ee44098f4";
-
-const realPixestate = new web3.eth.Contract(rpeAbi, rpeAddr);
-
-const testToken = "0x6a39e7A027063c62D5735AD2058892A87900C96F";
-
-const address_ZERO = "0x0000000000000000000000000000000000000000";
-const address_DAI = "0x6b175474e89094c44da98b954eedeac495271d0f";
-const address_USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
-const address_USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
+export const address = "0x01453B67FD3d9A4f3BD4728202234662579C06a1";
+const realPixestate = getContract(require("./abi/ABI_realPixestate.json"), address);
 
 export function getUsedTokens(): Promise<number[]> {
 	return realPixestate.methods.getUsedTokenIds().call();
@@ -21,20 +15,61 @@ export function getTokenUri(tokenId: number): Promise<string> {
 	return realPixestate.methods.tokenURI(tokenId).call();
 }
 
-export async function getPrices() {
+export function areaIsOccupied(tokenId: number): Promise<boolean> {
+	return realPixestate.methods.areaIsOccupied(tokenId).call();
+}
+
+export async function getPrices(): Promise<TokenPrices> {
 	const promises = [
-		realPixestate.methods.prices(address_ZERO).call(),
-		realPixestate.methods.prices(address_DAI).call(),
-		realPixestate.methods.prices(address_USDC).call(),
-		realPixestate.methods.prices(address_USDT).call(),
-		realPixestate.methods.prices(testToken).call(),
+		realPixestate.methods.prices(acceptedTokenAddresses.ETH).call(),
+		realPixestate.methods.prices(acceptedTokenAddresses.DAI).call(),
+		realPixestate.methods.prices(acceptedTokenAddresses.USDC).call(),
+		realPixestate.methods.prices(acceptedTokenAddresses.USDT).call(),
+		realPixestate.methods.prices(acceptedTokenAddresses.TST).call(),
 	];
-	const prices = await Promise.all(promises);
+
+	const prices: number[] = await Promise.all<number>(promises);
+
 	return {
-		ETH: Web3.utils.fromWei(prices[0].toString(), "ether"),
+		TST: prices[4],
+		ETH: wei2eth(prices[0].toString()),
 		DAI: prices[1],
 		USDC: prices[2],
 		USDT: prices[3],
-		TST: prices[1],
 	};
+}
+
+export async function safeMint(tokenId: number, currency: string, uri: string) {
+	//set up your Ethereum transaction
+	const transactionParameters: any = {
+		to: address,
+		from: window.ethereum.selectedAddress, // must match user's active address.
+		data: realPixestate.methods.safeMint(window.ethereum.selectedAddress, tokenId, acceptedTokenAddresses[currency], uri).encodeABI(), //make call to NFT smart contract
+	};
+
+	const price = (await getPrices())[currency];
+
+	if (currency === "ETH") {
+		const mask = breakTokenId(tokenId);
+		const area = (mask.w + 1) * (mask.h + 1);
+		transactionParameters.value = Web3.utils.toHex(Web3.utils.toWei((area * price).toString(), "ether"));
+		console.log(transactionParameters.value);
+	}
+
+	//sign the transaction via Metamask
+	try {
+		const txHash = await window.ethereum.request({
+			method: "eth_sendTransaction",
+			params: [transactionParameters],
+		});
+		return {
+			success: true,
+			status: "✅ Check out your transaction on Etherscan: https://ropsten.etherscan.io/tx/" + txHash,
+		};
+	} catch (error: any) {
+		return {
+			success: false,
+			status: "😥 Something went wrong: " + error.message,
+		};
+	}
 }

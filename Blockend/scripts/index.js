@@ -253,7 +253,7 @@ module.exports = async function main(callback) {
 		const myToken = await MyToken.deployed();
 
 		await myToken.approve(realPixestate.address, 10000000, { from: accounts[1] });
-		await realPixestate.safeMint(accounts[1], getTokenId([10, 10], [15, 15]), myToken.address, { from: accounts[1] });
+		await realPixestate.safeMint(accounts[1], getTokenId([10, 10], [15, 15]), myToken.address, "", { from: accounts[1] });
 
 		callback(0);
 	} catch (error) {

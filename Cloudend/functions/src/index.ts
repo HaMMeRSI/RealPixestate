@@ -3,9 +3,12 @@ const url = require("url");
 const https = require("https");
 const ipfsClient = require("ipfs-http-client");
 const infuraSecret = require("../secret_ipfs.json");
+const imageType = require("image-type");
+const isUrl = require("is-url");
 
 type Metadata = {
 	tokenId: number;
+	image: string;
 	description: string;
 	external_url: string;
 	external_url_text: string;
@@ -31,42 +34,59 @@ function checkLength(length: number) {
 
 function checkImage(imgUrl: string) {
 	return new Promise<string | boolean>((resolve) => {
-		const options = url.parse(imgUrl, true);
-		options.timeout = 1500;
-		let isgood = false;
+		let messageResolved = false;
+		const validUrl = isUrl(imgUrl);
 
-		const request = https
-			.get(options, function (response: any) {
-				const chunks: any[] = [];
-				response
-					.on("data", function (chunk: any) {
-						chunks.push(chunk);
-						const buffer = Buffer.concat(chunks);
-						if (buffer.length > 1_000_000) {
+		try {
+			if (validUrl) {
+				const options = url.parse(imgUrl, true);
+				options.timeout = 1500;
+				const request = https.get(options).end();
+				
+				request.on("response", function (response: any) {
+					const chunks: any[] = [];
+
+					response
+						.on("data", function (chunk: any) {
+							chunks.push(chunk);
+							const buffer = Buffer.concat(chunks);
+							if (buffer.length > 1_000_000) {
+								request.destroy();
+								resolve("file size too big, max 1 MB");
+								messageResolved = true;
+							}
+						})
+						.on("end", function () {
+							messageResolved = true;
+							const isImage = imageType(Buffer.concat(chunks)) !== null;
+							resolve(isImage || "Not an image");
+						})
+						.on("error", () => {
+							messageResolved = true;
+							resolve("Unknown issue with the image");
 							request.destroy();
-							resolve("file size too big, max 1 MB");
-							isgood = true;
-						}
-					})
-					.on("end", function () {
-						isgood = true;
-						resolve(true);
-					})
-					.on("error", () => {
-						isgood = true;
-						request.destroy();
-					})
-					.on("timeout", () => {
-						isgood = true;
-						request.destroy();
-					});
-			})
-			.end();
+						})
+						.on("timeout", () => {
+							messageResolved = true;
+							resolve("Unknown issue with the image");
+							request.destroy();
+						});
+				});
 
-		setTimeout(() => {
-			!isgood && request.destroy();
-			resolve("unknow error");
-		}, 5000);
+				request.on("error", (err: any) => {
+					resolve("Bad request, " + err.message);
+				});
+
+				setTimeout(() => {
+					!messageResolved && request.destroy();
+					resolve("Bad request");
+				}, 5000);
+			} else {
+				resolve("Invalid url");
+			}
+		} catch (e) {
+			resolve("Bad request");
+		}
 	});
 }
 
@@ -125,7 +145,7 @@ export const uploadToIpfs = functions.https.onRequest(async (request, response) 
 				const result = await test(request.body[key]);
 
 				if (result !== true) {
-					response.status(200).send(`Failed at ${key}, error: ${result}`);
+					response.status(200).send({ status: 1, result: `Failed at ${key}, error: ${result}` });
 					return;
 				}
 			}
@@ -140,10 +160,9 @@ export const uploadToIpfs = functions.https.onRequest(async (request, response) 
 		}, {} as Metadata);
 
 		const result = await client.add(JSON.stringify(metaData));
-		response.status(200).send({ metaData, result });
-	} catch (e) {
-		response.status(500).send(e);
-		return;
+		response.status(200).send({ status: 0, metaData, result });
+	} catch (err) {
+		response.status(500).send({ status: 2, result: err });
 	}
 });
 

@@ -3,6 +3,7 @@
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
+    "build:w": "tsc -w",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
@@ -17,7 +18,10 @@
     "firebase-admin": "^9.8.0",
     "firebase-functions": "^3.14.1",
     "image-size": "^0.9.7",
+    "image-type": "^4.1.0",
     "ipfs-http-client": "^53.0.1",
+    "is-url": "^1.2.4",
+    "isurl": "^1.0.0",
     "request-image-size": "^2.2.0",
     "web3": "^1.6.0"
   },

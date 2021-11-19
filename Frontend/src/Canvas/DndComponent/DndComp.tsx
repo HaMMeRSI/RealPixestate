@@ -33,9 +33,9 @@ export default function DndComp({ mask, isDnd, isScale, scale, parentForPotal }:
 	}
 
 	const closeWidnow = useCallback(
-		function closeWidnow(e: SyntheticMouseEvent) {
-			e.stopPropagation();
-			e.preventDefault();
+		function closeWidnow(e?: SyntheticMouseEvent) {
+			e?.stopPropagation();
+			e?.preventDefault();
 			setVisiblity(false);
 			isDnd.current = false;
 		},

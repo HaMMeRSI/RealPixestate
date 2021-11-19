@@ -53,6 +53,7 @@ export default function DescriptionBox({ tokenId, scale }: Props) {
 		tokenId: 998998999999,
 		external_url: "Some Link Goes Here",
 		external_url_text: "0000000000000000000000000000000000000000",
+		image: '',
 		description:
 			"Short description that does not exceeds 255 characters Short description that does not exceeds 255 characters Short description that does not exceeds 255 characters Short description that does not exceeds 255 characters Short description that does not exc",
 		name: "HaMMeRSI",

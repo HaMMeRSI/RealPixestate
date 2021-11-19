@@ -1,4 +1,4 @@
-import { CSSProperties, useEffect, useRef, useState, MouseEvent } from "react";
+import { CSSProperties, useEffect, useRef, useState, MouseEvent, createContext } from "react";
 import "./App.css";
 import usePan from "./Canvas/usePan";
 import useScale from "./Canvas/useScale";
@@ -7,8 +7,20 @@ import MaskedArea from "./Canvas/MaskedArea";
 import DescriptionBox from "./Canvas/DescriptionBox/DescriptionBox";
 import DndComp from "./Canvas/DndComponent/DndComp";
 import axios from "axios";
-import { ImageT, Point } from "./typs";
+import { ImageT, Point, RealpixestateContext } from "./typs";
 import useBlcokchainData from "./Blockchain/useBlockchainData";
+import ConnectWalletButton from "./Blockchain/Metamask/ConnectButton";
+
+/**
+https://i.ibb.co/BfF1dYg/50x50-1.png
+https://i.ibb.co/SVGDsjQ/50x50-2.png
+https://i.ibb.co/yQwzFxt/50x50-3.png
+https://i.ibb.co/G3TVrRC/50x50-4.png
+https://i.ibb.co/GFZ554G/50x100-1.png
+https://i.ibb.co/7CTc079/100x50.png
+https://i.ibb.co/WKVFzzt/200x200.png
+https://i.ibb.co/87zFVhs/1000x1000.png
+ */
 
 const pointUtils = {
 	sum: (p1: Point, p2: Point) => ({ x: p1.x + p2.x, y: p1.y + p2.y }),
@@ -56,14 +68,14 @@ const realPixestateStyle = (offset: Point, scale: number): CSSProperties => ({
 
 const imageSrcs: Array<ImageT> = [
 	// ["http://localhost:3000/testImages/1000x1000.png", 10, 10],
-	["http://localhost:3000/testImages/50x50_1.png", 300, 300, 10, 10],
-	["http://localhost:3000/testImages/50x50_1.png", 10, 10, 50, 50],
-	["http://localhost:3000/testImages/50x50_2.png", 200, 200, 50, 50],
-	["http://localhost:3000/testImages/50x50_3.png", 145, 50, 50, 50],
-	["http://localhost:3000/testImages/50x50_4.png", 700, 825, 50, 50],
-	["http://localhost:3000/testImages/50x100_1.png", 250, 50, 100, 50],
-	["http://localhost:3000/testImages/100x50.png", 400, 50, 50, 100],
-	["http://localhost:3000/testImages/200x200.png", 790, 790, 200, 200],
+	["https://i.ibb.co/BfF1dYg/50x50-1.png", 300, 300, 10, 10],
+	// ["https://ibb.co/qr0bwZj", 10, 10, 50, 50],
+	["https://i.ibb.co/SVGDsjQ/50x50-2.png", 200, 200, 50, 50],
+	["https://i.ibb.co/yQwzFxt/50x50-3.png", 145, 50, 50, 50],
+	["https://i.ibb.co/G3TVrRC/50x50-4.png", 700, 825, 50, 50],
+	["https://i.ibb.co/GFZ554G/50x100-1.png", 250, 50, 100, 50],
+	["https://i.ibb.co/7CTc079/100x50.png", 400, 50, 50, 100],
+	["https://i.ibb.co/WKVFzzt/200x200.png", 790, 790, 200, 200],
 ];
 
 function setMousePos(pos: Point) {
@@ -85,6 +97,12 @@ let adjustedOffset: Point = { x: 0, y: 0 };
 
 const isDnd = { current: false };
 const isScale = { current: false };
+const emptyContext: RealpixestateContext = {
+	tokensData: [],
+	reloadTokens: () => {},
+	walletAccount: "",
+};
+export const realpixestateContext = createContext<RealpixestateContext>(emptyContext);
 
 function App() {
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -95,14 +113,20 @@ function App() {
 	const [showMask, setShowMask] = useState(false);
 	const [showOwner, setShowOwner] = useState(false);
 	const [mask, setMaskPos] = useState({ x: 0, y: 0, w: 0, h: 0 });
-	const [tokensData, setTokensData] = useState<[number, string][]>([[-1, ""]]);
+	const [contextData, setContextData] = useState<RealpixestateContext>(emptyContext);
 	const [cursor, setCursor] = useState("default");
 
-	useBlcokchainData((tokenId, uri) => {
-		setTokensData((tokens) => {
-			return [...tokens, [tokenId, uri]];
+	const reloadTokens = useBlcokchainData((tokenId, uri) => {
+		setContextData((context) => {
+			return { ...context, reloadTokens, tokensData: [...context.tokensData, [tokenId, uri]] };
 		});
 	});
+
+	const onWalletConnected = (address: string) => {
+		setContextData((context) => {
+			return { ...context, walletAccount: address };
+		});
+	};
 
 	const realPixestateMouseMove = (e: MouseEvent) => {
 		if (isDnd.current) {
@@ -161,8 +185,11 @@ function App() {
 	}
 
 	function containerMouseUp(_e: MouseEvent) {
-		// setShowMask(false);
-		setShowOwner(false);
+		if (showOwner) {
+			setShowMask(false);
+			setShowOwner(false);
+		}
+
 		isDnd.current = false;
 		isScale.current = false;
 	}
@@ -191,7 +218,7 @@ function App() {
 			return (arow * size + acol) * size * size + brow * size + bcol;
 		}
 		axios
-			.post("https://us-central1-realpixestate-18a0e.cloudfunctions.net/helloWorld", {
+			.post("https://us-central1-realpixestate-18a0e.cloudfunctions.net/uploadToIpfs", {
 				tokenId: getTokenId([0, 0], [9, 9]),
 				description: "wefwef",
 				external_url: "ewfwefwef",
@@ -207,7 +234,6 @@ function App() {
 	useEffect(() => {
 		const context = canvasRef.current?.getContext("2d");
 		context?.fillRect(495, 495, 10, 10);
-		// realPixestateRef?.current?.prepend(grid(200, 1000, { gridStyle, lineStyle }));
 		imageSrcs.map(([src, x, y, w, h]) => {
 			const image = new Image();
 			image.src = src;
@@ -215,29 +241,34 @@ function App() {
 			image.onload = () => {
 				context?.drawImage(image, x, y, w, h);
 			};
-
+			image.onerror = (e) => {
+				console.error(e);
+			};
 			return image;
 		});
 	}, []);
 
 	return (
-		<div id="container" onMouseUp={containerMouseUp} style={{ cursor }} ref={containerRef}>
-			<div
-				id="realPixestate"
-				ref={realPixestateRef}
-				onMouseMove={realPixestateMouseMove}
-				onMouseDown={startPan}
-				onMouseUp={realPixestateMouseUp}
-				style={realPixestateStyle(adjustedOffset, scale)}
-			>
-				<div style={styles.gridStyle}></div>
-				<canvas onMouseDown={setMousePos(mousePosOnDown)} ref={canvasRef} width="1000" height="1000" style={styles.canvasStyle}></canvas>
-				{!showOwner && showMask ? <DndComp parent={realPixestateRef} parentForPotal={containerRef} isDnd={isDnd} isScale={isScale} mask={mask} scale={scale}></DndComp> : <></>}
-				{showMask ? <MaskedArea mask={mask} style={styles.maskStyle}></MaskedArea> : <></>}
-				<div style={styles.blurStyle}></div>
-				{showOwner ? <DescriptionBox scale={scale} tokenId={getTokenId([mask.x, mask.y], [mask.x + mask.w, mask.y + mask.h])}></DescriptionBox> : <></>}
+		<realpixestateContext.Provider value={contextData}>
+			<div id="container" onMouseUp={containerMouseUp} style={{ cursor }} ref={containerRef}>
+				<ConnectWalletButton onConnect={onWalletConnected}></ConnectWalletButton>
+				<div
+					id="realPixestate"
+					ref={realPixestateRef}
+					onMouseMove={realPixestateMouseMove}
+					onMouseDown={startPan}
+					onMouseUp={realPixestateMouseUp}
+					style={realPixestateStyle(adjustedOffset, scale)}
+				>
+					<div style={styles.gridStyle}></div>
+					<canvas onMouseDown={setMousePos(mousePosOnDown)} ref={canvasRef} width="1000" height="1000" style={styles.canvasStyle}></canvas>
+					{!showOwner && showMask ? <DndComp parent={realPixestateRef} parentForPotal={containerRef} isDnd={isDnd} isScale={isScale} mask={mask} scale={scale}></DndComp> : <></>}
+					{showMask ? <MaskedArea mask={mask} style={styles.maskStyle}></MaskedArea> : <></>}
+					<div style={styles.blurStyle}></div>
+					{showOwner ? <DescriptionBox scale={scale} tokenId={getTokenId([mask.x, mask.y], [mask.x + mask.w, mask.y + mask.h])}></DescriptionBox> : <></>}
+				</div>
 			</div>
-		</div>
+		</realpixestateContext.Provider>
 	);
 }
 
