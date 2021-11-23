@@ -15,8 +15,9 @@ module.exports = async function (deployer, _network, accounts) {
 	const realPixestate = await RealPixestate.deployed();
 	const myToken = await MyToken.deployed();
 
-	await myToken.mint(1000000, { from: accounts[1] });
-	await myToken.mint(1000000, { from: accounts[2] });
+	await myToken.mint(10010000, { from: accounts[0] });
+	await myToken.mint(10010000, { from: accounts[1] });
+	await myToken.mint(10001000, { from: accounts[2] });
 
 	await realPixestate.setPrice('0x0000000000000000000000000000000000000000', Web3.utils.toWei('0.01', 'ether'));
 	// test
@@ -28,7 +29,7 @@ module.exports = async function (deployer, _network, accounts) {
 	// USDT
 	await realPixestate.setPrice('0xdac17f958d2ee523a2206206994597c13d831ec7', 1);
 
-	await myToken.approve(realPixestate.address, 10000000, { from: accounts[1] });
+	// await myToken.approve(realPixestate.address, 10000000, { from: accounts[1] });
 
 	// await realPixestate.safeMint(accounts[1], getTokenId([0, 0], [4, 4]), myToken.address, "", { from: accounts[1] });
 	// await realPixestate.safeMint(accounts[1], getTokenId([10, 10], [14, 14]), myToken.address, "", { from: accounts[1] });

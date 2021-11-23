@@ -1,14 +1,14 @@
 export type Point = { x: number; y: number };
 export type ImageT = [string, number, number, number, number];
-export type Mask = { x: number; y: number; w: number; h: number };
+export type Section = { x: number; y: number; w: number; h: number };
 export type Metadata = {
 	tokenId: number;
-	image: string;
+	image_url: string;
 	description: string;
 	external_url: string;
-	external_url_text: string;
+	url_title: string;
 	name: string;
-	name_bio: string;
+	bio_link: string;
 };
 export type TokenPrices = {
 	ETH: number;
@@ -23,9 +23,10 @@ type RealpixestateContext = {
 	reloadTokens: () => void;
 	walletAccount: string;
 };
+
 export type MetaMaskResponse = {
 	address: string;
-	status: number;
+	status: MetaMaskStatus;
 	err?: any;
 };
 

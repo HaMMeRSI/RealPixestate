@@ -12,7 +12,7 @@ export default function useBlcokchainData(onData: (tokenId: number, uri: string)
 }
 
 async function getAllData(onData: (tokenId: number, uri: string) => void): Promise<void> {
-	const tokenIds = await getUsedTokens();
+	const tokenIds = (await getUsedTokens()).map(Number);
 	
 	for (const tokenId of tokenIds) {
 		getTokenUri(tokenId).then((uri: string) => {

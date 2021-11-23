@@ -1,4 +1,4 @@
-import { CSSProperties, useEffect, useRef, useState, MouseEvent, createContext } from "react";
+import { CSSProperties, useEffect, useRef, useState, MouseEvent, createContext, useMemo, useCallback } from "react";
 import "./App.css";
 import usePan from "./Canvas/usePan";
 import useScale from "./Canvas/useScale";
@@ -7,9 +7,10 @@ import MaskedArea from "./Canvas/MaskedArea";
 import DescriptionBox from "./Canvas/DescriptionBox/DescriptionBox";
 import DndComp from "./Canvas/DndComponent/DndComp";
 import axios from "axios";
-import { ImageT, Point, RealpixestateContext } from "./typs";
+import { ImageT, Metadata, Point, RealpixestateContext } from "./types";
 import useBlcokchainData from "./Blockchain/useBlockchainData";
 import ConnectWalletButton from "./Blockchain/Metamask/ConnectButton";
+import { breakTokenId } from "./Utils";
 
 /**
 https://i.ibb.co/BfF1dYg/50x50-1.png
@@ -66,17 +67,17 @@ const realPixestateStyle = (offset: Point, scale: number): CSSProperties => ({
 	boxShadow: "black 0 0 50px -20px",
 });
 
-const imageSrcs: Array<ImageT> = [
-	// ["http://localhost:3000/testImages/1000x1000.png", 10, 10],
-	["https://i.ibb.co/BfF1dYg/50x50-1.png", 300, 300, 10, 10],
-	// ["https://ibb.co/qr0bwZj", 10, 10, 50, 50],
-	["https://i.ibb.co/SVGDsjQ/50x50-2.png", 200, 200, 50, 50],
-	["https://i.ibb.co/yQwzFxt/50x50-3.png", 145, 50, 50, 50],
-	["https://i.ibb.co/G3TVrRC/50x50-4.png", 700, 825, 50, 50],
-	["https://i.ibb.co/GFZ554G/50x100-1.png", 250, 50, 100, 50],
-	["https://i.ibb.co/7CTc079/100x50.png", 400, 50, 50, 100],
-	["https://i.ibb.co/WKVFzzt/200x200.png", 790, 790, 200, 200],
-];
+// const imageSrcs: Array<ImageT> = [
+// 	// ["http://localhost:3000/testImages/1000x1000.png", 10, 10],
+// 	["https://i.ibb.co/BfF1dYg/50x50-1.png", 300, 300, 10, 10],
+// 	// ["https://ibb.co/qr0bwZj", 10, 10, 50, 50],
+// 	["https://i.ibb.co/SVGDsjQ/50x50-2.png", 200, 200, 50, 50],
+// 	["https://i.ibb.co/yQwzFxt/50x50-3.png", 145, 50, 50, 50],
+// 	["https://i.ibb.co/G3TVrRC/50x50-4.png", 700, 825, 50, 50],
+// 	["https://i.ibb.co/GFZ554G/50x100-1.png", 250, 50, 100, 50],
+// 	["https://i.ibb.co/7CTc079/100x50.png", 400, 50, 50, 100],
+// 	["https://i.ibb.co/WKVFzzt/200x200.png", 790, 790, 200, 200],
+// ];
 
 function setMousePos(pos: Point) {
 	return (e: MouseEvent) => {
@@ -85,8 +86,8 @@ function setMousePos(pos: Point) {
 	};
 }
 
-function getTokenId([aleft, atop]: [number, number], [bright, bbottom]: [number, number], size = 1000) {
-	return (atop * size + aleft) * size * size + bbottom * size + bright;
+function getTokenId([x1, y1]: [number, number], [x2, y2]: [number, number], size = 1000) {
+	return (x1 * size + y1) * size * size + x2 * size + y2;
 }
 
 const parse5 = (n: number) => parseInt(`${n / 5}`) * 5;
@@ -97,12 +98,7 @@ let adjustedOffset: Point = { x: 0, y: 0 };
 
 const isDnd = { current: false };
 const isScale = { current: false };
-const emptyContext: RealpixestateContext = {
-	tokensData: [],
-	reloadTokens: () => {},
-	walletAccount: "",
-};
-export const realpixestateContext = createContext<RealpixestateContext>(emptyContext);
+export const realpixestateContext = createContext<RealpixestateContext | null>(null);
 
 function App() {
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -113,19 +109,28 @@ function App() {
 	const [showMask, setShowMask] = useState(false);
 	const [showOwner, setShowOwner] = useState(false);
 	const [mask, setMaskPos] = useState({ x: 0, y: 0, w: 0, h: 0 });
-	const [contextData, setContextData] = useState<RealpixestateContext>(emptyContext);
 	const [cursor, setCursor] = useState("default");
+	const [walletAccount, setWalletAccount] = useState("");
+	const [tokensData, setTokensData] = useState<[number, string][]>([]);
 
-	const reloadTokens = useBlcokchainData((tokenId, uri) => {
-		setContextData((context) => {
-			return { ...context, reloadTokens, tokensData: [...context.tokensData, [tokenId, uri]] };
-		});
+	const onBlockchainTokenData = useBlcokchainData((tokenId, uri) => {
+		setTokensData((prevTokensData) => [...prevTokensData, [tokenId, uri]]);
 	});
 
+	const contextData = useMemo<RealpixestateContext>(
+		() => ({
+			tokensData,
+			reloadTokens: () => {
+				setTokensData([]);
+				onBlockchainTokenData();
+			},
+			walletAccount,
+		}),
+		[onBlockchainTokenData, tokensData, walletAccount]
+	);
+
 	const onWalletConnected = (address: string) => {
-		setContextData((context) => {
-			return { ...context, walletAccount: address };
-		});
+		setWalletAccount(address);
 	};
 
 	const realPixestateMouseMove = (e: MouseEvent) => {
@@ -151,7 +156,11 @@ function App() {
 	function onAreaClick(_e: MouseEvent): any {
 		if (pointUtils.eq(mousePos.current, mousePosOnDown)) {
 			const { x: mx, y: my } = relativeMousePos;
-			const imgs = imageSrcs.filter(([_src, x, y, w, h]) => mx >= x && mx <= x + w && my > y && my < y + h);
+			const imgs = tokensData.filter(([tokenId, _]) => {
+				const { x, y, w, h } = breakTokenId(tokenId);
+				return mx >= x && mx <= x + w + 1 && my > y && my < y + h + 1;
+			});
+
 			const isDndCopy = isDnd.current;
 			const isScaleCopy = isScale.current;
 
@@ -159,7 +168,8 @@ function App() {
 			setShowMask((mask) => {
 				if (!mask) {
 					if (imgs.length > 0) {
-						setMaskPos({ x: imgs[0][1], y: imgs[0][2], w: imgs[0][3], h: imgs[0][4] });
+						const { x, y, w, h } = breakTokenId(imgs[0][0]);
+						setMaskPos({ x, y, w: w + 1, h: h + 1 });
 					} else {
 						setMaskPos({ ...pointUtils.map(relativeMousePos, (x, y) => ({ x: parseInt(`${x / 5}`) * 5, y: parseInt(`${y / 5}`) * 5 })), w: 4, h: 4 });
 					}
@@ -233,20 +243,22 @@ function App() {
 
 	useEffect(() => {
 		const context = canvasRef.current?.getContext("2d");
-		context?.fillRect(495, 495, 10, 10);
-		imageSrcs.map(([src, x, y, w, h]) => {
-			const image = new Image();
-			image.src = src;
+		for (const [tokenId, tokenUrl] of tokensData) {
+			fetch(tokenUrl).then(async (res) => {
+				const data: Metadata = await res.json();
+				const { x, y, w, h } = breakTokenId(tokenId);
+				const image = new Image();
+				image.src = data.image_url;
 
-			image.onload = () => {
-				context?.drawImage(image, x, y, w, h);
-			};
-			image.onerror = (e) => {
-				console.error(e);
-			};
-			return image;
-		});
-	}, []);
+				image.onload = () => {
+					context?.drawImage(image, x, y, w + 1, h + 1);
+				};
+				image.onerror = (e) => {
+					console.error(e);
+				};
+			});
+		}
+	}, [tokensData]);
 
 	return (
 		<realpixestateContext.Provider value={contextData}>
@@ -265,7 +277,7 @@ function App() {
 					{!showOwner && showMask ? <DndComp parent={realPixestateRef} parentForPotal={containerRef} isDnd={isDnd} isScale={isScale} mask={mask} scale={scale}></DndComp> : <></>}
 					{showMask ? <MaskedArea mask={mask} style={styles.maskStyle}></MaskedArea> : <></>}
 					<div style={styles.blurStyle}></div>
-					{showOwner ? <DescriptionBox scale={scale} tokenId={getTokenId([mask.x, mask.y], [mask.x + mask.w, mask.y + mask.h])}></DescriptionBox> : <></>}
+					{showOwner ? <DescriptionBox scale={scale} tokenId={getTokenId([mask.x, mask.y], [mask.x + mask.w - 1, mask.y + mask.h - 1])}></DescriptionBox> : <></>}
 				</div>
 			</div>
 		</realpixestateContext.Provider>

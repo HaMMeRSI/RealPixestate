@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TokenPrices } from "../typs";
+import { TokenPrices } from "../types";
 import { getPrices } from "./RealpixestateContract";
 
 

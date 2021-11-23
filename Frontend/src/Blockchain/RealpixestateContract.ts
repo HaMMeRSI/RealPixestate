@@ -1,14 +1,18 @@
 import Web3 from "web3";
-import { TokenPrices } from "../typs";
+import { TokenPrices } from "../types";
 import { breakTokenId } from "../Utils";
 import { acceptedTokenAddresses } from "./TokenContract";
 import { getContract, wei2eth } from "./Web3Helper";
+import addresses from './addresses';
 
-export const address = "0x01453B67FD3d9A4f3BD4728202234662579C06a1";
-const realPixestate = getContract(require("./abi/ABI_realPixestate.json"), address);
+const realPixestate = getContract(require("./abi/ABI_realPixestate.json"), addresses.realPixestate);
 
 export function getUsedTokens(): Promise<number[]> {
 	return realPixestate.methods.getUsedTokenIds().call();
+}
+
+export function ownerOf(tokenId: number): Promise<string> {
+	return realPixestate.methods.ownerOf(tokenId).call();
 }
 
 export function getTokenUri(tokenId: number): Promise<string> {
@@ -42,7 +46,7 @@ export async function getPrices(): Promise<TokenPrices> {
 export async function safeMint(tokenId: number, currency: string, uri: string) {
 	//set up your Ethereum transaction
 	const transactionParameters: any = {
-		to: address,
+		to: addresses.realPixestate,
 		from: window.ethereum.selectedAddress, // must match user's active address.
 		data: realPixestate.methods.safeMint(window.ethereum.selectedAddress, tokenId, acceptedTokenAddresses[currency], uri).encodeABI(), //make call to NFT smart contract
 	};

@@ -1,36 +1,36 @@
 import { UIEvent } from "react";
-import { Mask } from "./typs";
+import { Section } from "./types";
 
 export function stopPropagation(e: UIEvent) {
 	e.stopPropagation();
 }
 
-export function maskToTokenId(mask: Mask, size = 1000) {
-	return (mask.y * size + mask.x) * size * size + (mask.y + mask.h) * size + (mask.x + mask.w);
+export function maskToTokenId(mask: Section, size = 1000) {
+	return (mask.x * size + mask.y) * size * size + (mask.x + mask.w) * size + (mask.y + mask.h);
 }
 
-export function breakTokenId(tokenId: number) {
-	function Section(top: any, left: any, bottom: any, right: any) {
+export function breakTokenId(tokenId: number): Section {
+	function Section(x1: any, y1: any, x2: any, y2: any): Section {
 		return {
-			x: parseInt(left),
-			y: parseInt(top),
-			w: parseInt(right) - parseInt(left) || 1000,
-			h: parseInt(bottom) - parseInt(top) || 1000,
+			x: parseInt(x1),
+			y: parseInt(y1),
+			w: parseInt(x2) - parseInt(x1) || 1000,
+			h: parseInt(y2) - parseInt(y1) || 1000,
 		};
 	}
 
 	const dimensions = 1000;
 	const dimSquared = dimensions * dimensions;
-	const tl = tokenId / dimSquared;
-	const br = tokenId % dimSquared;
+	const xy1 = tokenId / dimSquared;
+	const xy2 = tokenId % dimSquared;
 
-	const top = tl / dimensions;
-	const left = tl % dimensions;
+	const x1 = xy1 / dimensions;
+	const y1 = xy1 % dimensions;
 
-	const bottom = br / dimensions;
-	const right = br % dimensions;
+	const x2 = xy2 / dimensions;
+	const y2 = xy2 % dimensions;
 
-	return Section(top, left, bottom, right);
+	return Section(x1, y1, x2, y2);
 }
 
 export function checkIntersection(tokenId: number, tokenIds: number[]) {

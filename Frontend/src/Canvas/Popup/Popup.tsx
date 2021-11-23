@@ -4,7 +4,6 @@ import { realpixestateContext } from "../../App";
 import { safeMint } from "../../Blockchain/RealpixestateContract";
 import { acceptedTokenAddresses, allowance, approve } from "../../Blockchain/TokenContract";
 import usePrices from "../../Blockchain/usePrices";
-import usePrevious from "../../Hooks/usePrevious";
 import { addToIpfs } from "../../IPFS/ipfsUtils";
 import { breakTokenId, checkIntersection, stopPropagation, getImageSize } from "../../Utils";
 import "./Popup.css";
@@ -75,12 +74,14 @@ export default function Popup({ tokenId, onClose, parentForPotal, isVisible }: P
 	const prices = usePrices();
 
 	useEffect(() => {
-		setIsOccupied(
-			checkIntersection(
-				tokenId,
-				context.tokensData.map(([tokenId, _uri]) => tokenId)
-			)
-		);
+		if (context) {
+			setIsOccupied(
+				checkIntersection(
+					tokenId,
+					context.tokensData.map(([tokenId, _uri]) => tokenId)
+				)
+			);
+		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [isVisible]);
 
@@ -141,15 +142,7 @@ export default function Popup({ tokenId, onClose, parentForPotal, isVisible }: P
 					</div>
 					<div className="row">
 						<span>
-							<input
-								className="gate"
-								id="urlTitle"
-								type="text"
-								maxLength={40}
-								placeholder="Max 40 characters"
-								value={urlTitle}
-								onChange={(e) => setUrlTitle(e.target.value)}
-							/>
+							<input className="gate" id="urlTitle" type="text" maxLength={40} placeholder="Max 40 characters" value={urlTitle} onChange={(e) => setUrlTitle(e.target.value)} />
 							<label htmlFor="urlTitle">URL title</label>
 						</span>
 					</div>
@@ -199,20 +192,20 @@ export default function Popup({ tokenId, onClose, parentForPotal, isVisible }: P
 	};
 
 	const onMintClick = async () => {
-		if (validityResult !== true) {
+		if (validityResult !== true || context === null) {
 			return;
 		}
 
-		const currAllowance = currency !== "ETH" ? await allowance(acceptedTokenAddresses[currency], context.walletAccount) : Number.MAX_VALUE;
+		const currAllowance = currency !== "ETH" ? await allowance(acceptedTokenAddresses[currency], context?.walletAccount) : Number.MAX_VALUE;
 
 		if (currAllowance >= getPrice(currency)) {
 			const response = await addToIpfs({
 				description: description,
 				external_url: externalUrl,
-				external_url_text: urlTitle,
-				image: imageURL,
+				url_title: urlTitle,
+				image_url: imageURL,
 				name,
-				name_bio: bioLink,
+				bio_link: bioLink,
 				tokenId,
 			});
 

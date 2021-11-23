@@ -8,21 +8,21 @@ const isUrl = require("is-url");
 
 type Metadata = {
 	tokenId: number;
-	image: string;
+	image_url: string;
 	description: string;
 	external_url: string;
-	external_url_text: string;
+	url_title: string;
 	name: string;
-	name_bio: string;
+	bio_link: string;
 };
 
 type CheckList = {
 	description: Array<(str: string) => Promise<boolean | string>>;
 	external_url: Array<(str: string) => Promise<boolean | string>>;
-	external_url_text: Array<(str: string) => Promise<boolean | string>>;
-	image: Array<(str: string) => Promise<boolean | string>>;
+	url_title: Array<(str: string) => Promise<boolean | string>>;
+	image_url: Array<(str: string) => Promise<boolean | string>>;
 	name: Array<(str: string) => Promise<boolean | string>>;
-	name_bio: Array<(str: string) => Promise<boolean | string>>;
+	bio_link: Array<(str: string) => Promise<boolean | string>>;
 	[key: string]: Array<(str: string) => Promise<boolean | string>>;
 };
 
@@ -32,58 +32,57 @@ function checkLength(length: number) {
 	};
 }
 
+async function asyncIsUrl(url: string): Promise<boolean | string> {
+	return isUrl(url) || "Invalid url";
+}
+
 function checkImage(imgUrl: string) {
 	return new Promise<string | boolean>((resolve) => {
 		let messageResolved = false;
-		const validUrl = isUrl(imgUrl);
 
 		try {
-			if (validUrl) {
-				const options = url.parse(imgUrl, true);
-				options.timeout = 1500;
-				const request = https.get(options).end();
-				
-				request.on("response", function (response: any) {
-					const chunks: any[] = [];
+			const options = url.parse(imgUrl, true);
+			options.timeout = 1500;
+			const request = https.get(options).end();
 
-					response
-						.on("data", function (chunk: any) {
-							chunks.push(chunk);
-							const buffer = Buffer.concat(chunks);
-							if (buffer.length > 1_000_000) {
-								request.destroy();
-								resolve("file size too big, max 1 MB");
-								messageResolved = true;
-							}
-						})
-						.on("end", function () {
-							messageResolved = true;
-							const isImage = imageType(Buffer.concat(chunks)) !== null;
-							resolve(isImage || "Not an image");
-						})
-						.on("error", () => {
-							messageResolved = true;
-							resolve("Unknown issue with the image");
+			request.on("response", function (response: any) {
+				const chunks: any[] = [];
+
+				response
+					.on("data", function (chunk: any) {
+						chunks.push(chunk);
+						const buffer = Buffer.concat(chunks);
+						if (buffer.length > 1_000_000) {
 							request.destroy();
-						})
-						.on("timeout", () => {
+							resolve("file size too big, max 1 MB");
 							messageResolved = true;
-							resolve("Unknown issue with the image");
-							request.destroy();
-						});
-				});
+						}
+					})
+					.on("end", function () {
+						messageResolved = true;
+						const isImage = imageType(Buffer.concat(chunks)) !== null;
+						resolve(isImage || "Not an image");
+					})
+					.on("error", () => {
+						messageResolved = true;
+						resolve("Unknown issue with the image");
+						request.destroy();
+					})
+					.on("timeout", () => {
+						messageResolved = true;
+						resolve("Unknown issue with the image");
+						request.destroy();
+					});
+			});
 
-				request.on("error", (err: any) => {
-					resolve("Bad request, " + err.message);
-				});
+			request.on("error", (err: any) => {
+				resolve("Bad request, " + err.message);
+			});
 
-				setTimeout(() => {
-					!messageResolved && request.destroy();
-					resolve("Bad request");
-				}, 5000);
-			} else {
-				resolve("Invalid url");
-			}
+			setTimeout(() => {
+				!messageResolved && request.destroy();
+				resolve("Bad request");
+			}, 5000);
 		} catch (e) {
 			resolve("Bad request");
 		}
@@ -117,11 +116,11 @@ async function areaIsFree(tokenId: string) {
 const checkList: CheckList = {
 	tokenId: [exists, isOfType("number"), areaIsFree],
 	description: [exists, isOfType("string"), checkLength(255)],
-	external_url: [exists, isOfType("string"), checkLength(255)],
-	external_url_text: [exists, isOfType("string"), checkLength(40)],
-	image: [exists, isOfType("string"), checkLength(255), checkImage],
+	url_title: [exists, isOfType("string"), checkLength(40)],
+	image_url: [exists, isOfType("string"), checkLength(255), asyncIsUrl, checkImage],
 	name: [exists, isOfType("string"), checkLength(40)],
-	name_bio: [exists, isOfType("string"), checkLength(255)],
+	bio_link: [exists, isOfType("string"), checkLength(255), asyncIsUrl],
+	external_url: [exists, isOfType("string"), checkLength(255), asyncIsUrl],
 };
 
 export const uploadToIpfs = functions.https.onRequest(async (request, response) => {
@@ -132,7 +131,7 @@ export const uploadToIpfs = functions.https.onRequest(async (request, response) 
 		response.set("Access-Control-Allow-Methods", "GET");
 		response.set("Access-Control-Allow-Headers", "Content-Type");
 		response.set("Access-Control-Max-Age", "3600");
-		response.status(204).send("");
+		response.sendStatus(204);
 		return;
 	}
 

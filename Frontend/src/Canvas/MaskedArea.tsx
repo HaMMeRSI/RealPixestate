@@ -1,7 +1,7 @@
 import { CSSProperties } from "react";
-import { Mask } from "../typs";
+import { Section } from "../types";
 
-type Props = { mask: Mask; style: CSSProperties };
+type Props = { mask: Section; style: CSSProperties };
 
 export default function MaskedArea({ mask, style }: Props) {
 	const bw = 2;

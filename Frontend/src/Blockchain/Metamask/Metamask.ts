@@ -1,4 +1,4 @@
-import { MetaMaskResponse } from "../../typs";
+import { MetaMaskResponse } from "../../types";
 
 export const connectWallet = async (): Promise<MetaMaskResponse> => {
 	if (window.ethereum) {
@@ -77,11 +77,12 @@ export function addWalletListener(onAccountsChanged: (response: MetaMaskResponse
 
 export function addChainListener(onChainChanged: (response: number) => void) {
 	if (window.ethereum) {
-		const func = (chainId: number) => {
-			onChainChanged(chainId);
+		const func = (chainId: string) => {
+			console.log(parseInt(chainId));
+			onChainChanged(parseInt(chainId));
 		};
-		window.ethereum.on("chainChanged", func);
 
+		window.ethereum.on("chainChanged", func);
 		return () => window.ethereum.removeListener("chainChanged", func);
 	} else {
 		onChainChanged(-1);

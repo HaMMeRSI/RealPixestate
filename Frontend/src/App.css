@@ -10,17 +10,3 @@
 	font-size: 1.5rem !important;
 	height: 25px !important;
 }
-.connect_button span {
-	white-space: nowrap;
-	overflow: hidden;
-	display: inline-block;
-}
-.connect_button span:first-child {
-	width: 100px;
-	text-overflow: ellipsis;
-}
-.connect_button span + span {
-	width: 67px;
-	direction: rtl;
-	text-align: right;
-}

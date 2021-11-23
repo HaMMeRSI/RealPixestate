@@ -76,11 +76,11 @@ contract RealPixestate is ERC721, ERC721Burnable, Ownable, IERC2981 {
 		uint256 tl = tokenId / dimSquared;
 		uint256 br = tokenId % dimSquared;
 
-		uint256 top = (tl / dimensions);
-		uint256 left = (tl % dimensions);
+		uint256 top = (tl % dimensions);
+		uint256 left = (tl / dimensions);
 
-		uint256 bottom = (br / dimensions);
-		uint256 right = (br % dimensions);
+		uint256 bottom = (br % dimensions);
+		uint256 right = (br / dimensions);
 
 		require(top <= bottom && left <= right, "Invalid tokenId");
 		require(top < dimensions && left < dimensions && bottom < dimensions && right < dimensions, "Outside of bounds");

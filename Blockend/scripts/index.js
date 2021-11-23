@@ -248,13 +248,13 @@ module.exports = async function main(callback) {
 
 		const RealPixestate = artifacts.require('RealPixestate');
 		const MyToken = artifacts.require('MyToken');
-		
+
 		const realPixestate = await RealPixestate.deployed();
 		const myToken = await MyToken.deployed();
 
-		await myToken.approve(realPixestate.address, 10000000, { from: accounts[1] });
-		await realPixestate.safeMint(accounts[1], getTokenId([10, 10], [15, 15]), myToken.address, "", { from: accounts[1] });
-
+		// await myToken.approve(realPixestate.address, 10000000, { from: accounts[1] });
+		// await realPixestate.safeMint(accounts[1], getTokenId([10, 10], [15, 15]), myToken.address, "", { from: accounts[1] });
+		console.log((await realPixestate.getUsedTokenIds())[0].toNumber());
 		callback(0);
 	} catch (error) {
 		console.error(error);

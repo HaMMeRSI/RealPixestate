@@ -17,7 +17,8 @@
 .dnd_move:active {
 	cursor: grabbing !important;
 }
-.dnd_mint {
+.dnd_mint,
+.dnd_min_disabled {
 	position: absolute;
 	left: 100%;
 	top: 100%;
@@ -35,8 +36,16 @@
 	border-width: 1px;
 	border-image-source: linear-gradient(315deg, #743ad5, #d53a9d);
 	cursor: pointer;
-	transition: border-image-source .1s ease-in-out;
+	transition: border-image-source 0.1s ease-in-out;
 }
+
+.dnd_min_disabled {
+	font-size: 0.5rem;
+	font-size: 0.5rem;
+	white-space: nowrap;
+	cursor: default;
+}
+
 .dnd_mint:hover {
 	border-image-source: linear-gradient(0deg, #a176ec, #ff95d8);
 }

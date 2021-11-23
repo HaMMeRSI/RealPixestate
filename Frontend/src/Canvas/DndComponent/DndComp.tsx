@@ -1,15 +1,16 @@
 import "./DndComponent.css";
-import { CSSProperties, MouseEvent as SyntheticMouseEvent, RefObject, useCallback, useState } from "react";
+import { CSSProperties, MouseEvent as SyntheticMouseEvent, RefObject, useCallback, useContext, useState } from "react";
 import SvgMove from "../../Images/MoveSvg";
 import ScaleSvg from "../../Images/ScaleSvg";
-import { Mask } from "../../typs";
+import { Section } from "../../types";
 import Popup from "../Popup/Popup";
 import { maskToTokenId, stopPropagation } from "../../Utils";
+import { realpixestateContext } from "../../App";
 
 type cRefObject<T> = { current: T };
 type Props = {
 	parent: RefObject<HTMLElement>;
-	mask: Mask;
+	mask: Section;
 	isDnd: cRefObject<boolean>;
 	isScale: cRefObject<boolean>;
 	scale: number;
@@ -19,6 +20,8 @@ type Props = {
 export default function DndComp({ mask, isDnd, isScale, scale, parentForPotal }: Props) {
 	const [isVisible, setVisiblity] = useState(false);
 	const [tokenId, setTokenId] = useState(0);
+	const { walletAccount } = useContext(realpixestateContext) ?? {};
+
 	const pos: CSSProperties = {
 		top: mask.y,
 		left: mask.x,
@@ -64,9 +67,15 @@ export default function DndComp({ mask, isDnd, isScale, scale, parentForPotal }:
 			<div className="dnd_move" onMouseDown={dnd_drag_down} style={getScale()}>
 				<SvgMove></SvgMove>
 			</div>
-			<div className="dnd_mint" style={getMintPos()} onMouseUp={openWidnow} onMouseDown={stopPropagation}>
-				Request
-			</div>
+			{!!walletAccount ? (
+				<div className="dnd_mint" style={getMintPos()} onMouseUp={openWidnow} onMouseDown={stopPropagation}>
+					Request
+				</div>
+			) : (
+				<div className="dnd_min_disabled" style={getMintPos()} onMouseUp={stopPropagation} onMouseDown={stopPropagation}>
+					Please Connect
+				</div>
+			)}
 			<div className="dnd_scale" onMouseDown={dnd_scale_down} style={getScale()}>
 				<ScaleSvg></ScaleSvg>
 			</div>
